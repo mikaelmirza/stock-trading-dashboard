@@ -1,0 +1,77 @@
+# Render Blueprint (PLAN.md Phase K, adapted from Fly.io to Render on
+# 2026-08-21): mirrors SPEC §3/§11's two-process architecture -- the Next.js
+# app and the WS relay as separate services sharing one Postgres instance
+# and one WS_JWT_SECRET. Guest cleanup (PLAN §6.2) runs as a Render Cron Job
+# instead of pg_cron (not available on Render's managed Postgres -- see
+# prisma/migrations/20260821022623_guest_cleanup_cron and
+# scripts/prune-inactive-guests.ts).
+#
+# Free-tier notes (all three resources below use plan: free):
+# - Web services sleep independently after 15 min with no inbound traffic;
+#   first request after idle takes ~30-60s to wake.
+# - The free Postgres instance expires 30 days after creation (14-day grace
+#   period to upgrade before deletion) -- this is a harder limit than the
+#   app's own 30-day guest-cleanup rule and needs separate manual renewal.
+#
+# NEXT_PUBLIC_RELAY_URL is intentionally left as sync: false (manual): it's
+# a Next.js build-time env var that needs the relay's actual public
+# hostname, which only exists after the relay service's first deploy --
+# see the deploy notes for the two-phase fill-in-then-redeploy step.
+
+envVarGroups:
+  - name: relay-shared-secrets
+    envVars:
+      - key: WS_JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: stock-trading-db
+    plan: free
+    databaseName: stock_trading
+    user: stock_trading
+
+services:
+  - type: web
+    name: stock-trading-app
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npx prisma generate && npm run build
+    # preDeployCommand isn't available on free-tier services -- migrate at
+    # boot instead (prisma migrate deploy is a safe no-op once applied).
+    startCommand: npx prisma migrate deploy && npm run start
+    envVars:
+      - fromGroup: relay-shared-secrets
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-trading-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NEXT_PUBLIC_RELAY_URL
+        sync: false
+
+  - type: web
+    name: stock-trading-relay
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run relay:start
+    envVars:
+      - fromGroup: relay-shared-secrets
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-trading-db
+          property: connectionString
+
+  - type: cron
+    name: stock-trading-guest-cleanup
+    runtime: node
+    plan: free
+    schedule: "0 3 * * *"
+    buildCommand: npm ci
+    startCommand: npx tsx scripts/prune-inactive-guests.ts
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-trading-db
+          property: connectionString

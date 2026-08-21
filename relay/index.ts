@@ -90,7 +90,11 @@ const isMainModule =
   process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isMainModule) {
-  const port = Number(process.env["RELAY_PORT"] ?? 8080);
+  // Render (and most PaaS hosts) assign the port via $PORT and route
+  // external traffic to whatever the process actually binds -- RELAY_PORT
+  // stays as an explicit local-dev override, PORT takes priority in
+  // deployed environments, 8080 is the last-resort default.
+  const port = Number(process.env["RELAY_PORT"] ?? process.env["PORT"] ?? 8080);
   startRelay(port);
   console.log(`relay listening on port ${port}`);
 }
