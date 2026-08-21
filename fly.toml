@@ -1,0 +1,88 @@
+# PLAN.md Phase K (step 41): two process groups on one Fly app — the
+# Next.js app and the WS relay — sharing one Postgres instance, per SPEC
+# §3/§11's "single host, two always-on processes" architecture.
+#
+# NOT deployed yet. Before running `fly launch` / `fly deploy`:
+#   1. Replace `app` below with a real, globally-unique Fly app name.
+#   2. Pick a `primary_region` (e.g. "iad", "sjc" — see `fly platform regions`).
+#   3. Provision Postgres and attach it: `fly postgres create` then
+#      `fly postgres attach <pg-app-name>` — this injects DATABASE_URL as a
+#      secret automatically, so it's deliberately not set here.
+#   4. Set the remaining secrets (never commit these):
+#        fly secrets set SESSION_SECRET=$(openssl rand -base64 32)
+#        fly secrets set WS_JWT_SECRET=$(openssl rand -base64 32)
+#        fly secrets set ALPHA_VANTAGE_API_KEY=<your key>
+#   5. Update NEXT_PUBLIC_RELAY_URL below to the relay's real wss:// URL
+#      once the app name/region are final (it's a build-time public env var,
+#      so it can't be injected as a runtime secret the way the others are).
+#   6. pg_cron (PLAN §6.2/step 42) requires a self-managed Postgres Machine
+#      (`fly postgres create`), not Fly's managed offering — confirm before
+#      attaching.
+
+app = "REPLACE_WITH_YOUR_APP_NAME"
+primary_region = "iad"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  RELAY_PORT = "8081"
+  # Placeholder — must match the relay service's real public hostname
+  # (see step 5 above).
+  NEXT_PUBLIC_RELAY_URL = "wss://REPLACE_WITH_YOUR_APP_NAME.fly.dev/relay"
+
+[processes]
+  app = "npm run start"
+  relay = "npm run relay:start"
+
+[[services]]
+  processes = ["app"]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/api/symbols"
+
+[[services]]
+  processes = ["relay"]
+  internal_port = 8081
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+[[vm]]
+  processes = ["app"]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[[vm]]
+  processes = ["relay"]
+  size = "shared-cpu-1x"
+  memory = "512mb"

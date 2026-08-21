@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String?         @unique
+  passwordHash String?
+  isGuest      Boolean         @default(true)
+  cashBalance  Decimal         @default(100000) @db.Decimal(14, 4)
+  createdAt    DateTime        @default(now())
+  lastActiveAt DateTime        @updatedAt
+  watchlist    WatchlistItem[]
+  holdings     Holding[]
+  trades       Trade[]
+}
+
+model WatchlistItem {
+  id      String   @id @default(cuid())
+  userId  String
+  symbol  String
+  addedAt DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+}
+
+model Holding {
+  id           String  @id @default(cuid())
+  userId       String
+  symbol       String
+  quantity     Int
+  avgCostBasis Decimal @db.Decimal(14, 4)
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+}
+
+model Trade {
+  id         String    @id @default(cuid())
+  userId     String
+  symbol     String
+  side       TradeSide
+  quantity   Int
+  price      Decimal   @db.Decimal(14, 4)
+  executedAt DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, executedAt])
+}
+
+model SeedPriceHistory {
+  id     String   @id @default(cuid())
+  symbol String
+  date   DateTime
+  open   Decimal  @db.Decimal(14, 4)
+  high   Decimal  @db.Decimal(14, 4)
+  low    Decimal  @db.Decimal(14, 4)
+  close  Decimal  @db.Decimal(14, 4)
+  volume BigInt
+
+  @@unique([symbol, date])
+}
+
+// Bridges the relay process (in-memory GBM simulation) and the Next.js
+// process (trade validation/execution) — the two processes don't share
+// memory, only Postgres. The relay is the sole writer (throttled ~1/s per
+// symbol, unthrottled on halt/resume transitions); Next.js only reads it to
+// validate/price trades server-side (never trusting client-reported prices).
+model SymbolState {
+  symbol    String   @id
+  lastPrice Decimal  @db.Decimal(14, 4)
+  isHalted  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
