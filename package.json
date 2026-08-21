@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "db:seed": "tsx scripts/seed-price-history.ts",
     "relay:dev": "tsx watch relay/index.ts",
     "relay:start": "tsx relay/index.ts"

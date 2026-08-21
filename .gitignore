@@ -42,4 +42,10 @@ next-env.d.ts
 
 # prisma generated client
 /app/generated/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 .git-broken-backup-20260821/

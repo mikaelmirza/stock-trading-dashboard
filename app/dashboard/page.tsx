@@ -46,16 +46,28 @@ export default function DashboardPage() {
         {/* minWidth/minHeight: 0 override the grid item default of `auto`,
             which otherwise lets a wide table (e.g. HoldingsPanel's) overflow
             the track instead of scrolling within it. */}
-        <Box sx={{ gridArea: "watchlist", overflow: "auto", minWidth: 0, minHeight: 0 }}>
+        <Box
+          data-testid="watchlist-widget"
+          sx={{ gridArea: "watchlist", overflow: "auto", minWidth: 0, minHeight: 0 }}
+        >
           <Watchlist />
         </Box>
-        <Box sx={{ gridArea: "chart", overflow: "auto", minWidth: 0, minHeight: 0 }}>
+        <Box
+          data-testid="chart-widget"
+          sx={{ gridArea: "chart", overflow: "auto", minWidth: 0, minHeight: 0 }}
+        >
           <PriceChart marketData={marketData} />
         </Box>
-        <Box sx={{ gridArea: "orderbook", overflow: "auto", minWidth: 0, minHeight: 0 }}>
+        <Box
+          data-testid="orderbook-widget"
+          sx={{ gridArea: "orderbook", overflow: "auto", minWidth: 0, minHeight: 0 }}
+        >
           <OrderBook marketData={marketData} />
         </Box>
-        <Box sx={{ gridArea: "holdings", overflow: "auto", minWidth: 0, minHeight: 0 }}>
+        <Box
+          data-testid="holdings-widget"
+          sx={{ gridArea: "holdings", overflow: "auto", minWidth: 0, minHeight: 0 }}
+        >
           <HoldingsPanel marketData={marketData} />
         </Box>
       </Box>
