@@ -6,12 +6,18 @@
 # prisma/migrations/20260821022623_guest_cleanup_cron and
 # scripts/prune-inactive-guests.ts).
 #
-# Free-tier notes (all three resources below use plan: free):
-# - Web services sleep independently after 15 min with no inbound traffic;
-#   first request after idle takes ~30-60s to wake.
+# Free-tier notes:
+# - The two web services (app, relay) and the Postgres instance below all use
+#   plan: free. Web services sleep independently after 15 min with no
+#   inbound traffic; first request after idle takes ~30-60s to wake.
 # - The free Postgres instance expires 30 days after creation (14-day grace
 #   period to upgrade before deletion) -- this is a harder limit than the
 #   app's own 30-day guest-cleanup rule and needs separate manual renewal.
+# - The guest-cleanup Cron Job has NO free tier on Render (min $1/month,
+#   unlike web services/Postgres) -- confirmed cost, accepted by the user
+#   2026-08-21 in exchange for a guaranteed daily schedule rather than the
+#   $0 best-effort alternative (an in-process setInterval in the relay,
+#   which only fires while that free service happens to be awake).
 #
 # NEXT_PUBLIC_RELAY_URL is intentionally left as sync: false (manual): it's
 # a Next.js build-time env var that needs the relay's actual public
@@ -66,7 +72,10 @@ services:
   - type: cron
     name: stock-trading-guest-cleanup
     runtime: node
-    plan: free
+    # No free tier for Cron Jobs on Render (min $1/month) -- omitting `plan`
+    # lets Render use its default paid instance type for this service type,
+    # since no confirmed-valid explicit plan string was available at
+    # authoring time. Verify/adjust in the dashboard if it needs pinning.
     schedule: "0 3 * * *"
     buildCommand: npm ci
     startCommand: npx tsx scripts/prune-inactive-guests.ts
