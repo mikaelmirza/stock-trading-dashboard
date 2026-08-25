@@ -60,7 +60,7 @@ services:
     name: stock-trading-relay
     runtime: node
     plan: free
-    buildCommand: npm ci
+    buildCommand: npm ci && npx prisma generate
     startCommand: npm run relay:start
     envVars:
       - fromGroup: relay-shared-secrets
@@ -77,7 +77,7 @@ services:
     # since no confirmed-valid explicit plan string was available at
     # authoring time. Verify/adjust in the dashboard if it needs pinning.
     schedule: "0 3 * * *"
-    buildCommand: npm ci
+    buildCommand: npm ci && npx prisma generate
     startCommand: npx tsx scripts/prune-inactive-guests.ts
     envVars:
       - key: DATABASE_URL
