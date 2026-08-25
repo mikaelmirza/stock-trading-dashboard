@@ -34,7 +34,10 @@ export function useMarketData(client: MarketStreamClient): MarketData {
         if (symbol === selectedSymbol) onStoreChange();
       });
     },
-    () => (selectedSymbol ? client.getState(selectedSymbol) : EMPTY)
+    () => (selectedSymbol ? client.getState(selectedSymbol) : EMPTY),
+    // No live WS connection exists during SSR, so the server snapshot is
+    // always EMPTY — the client re-hydrates with real data after mount.
+    () => EMPTY
   );
 
   return { symbol: selectedSymbol, ...state };
